@@ -1,11 +1,7 @@
-src/Test.java
 src/MapViewer.java
-src/Routes/Routes.java
-src/Transport/Bus.java
-src/Transport/Point.java
-src/Point.java
-src/Nodes/Dijkstra.java
-src/Nodes/CoordinatesToPath.java
+src/Segments/Segment.java
+src/Segments/PathSegment.java
 src/Nodes/NodeEntry.java
 src/Nodes/NodesToPath.java
+src/Nodes/Routes.java
 src/Nodes/NodeLoader.java

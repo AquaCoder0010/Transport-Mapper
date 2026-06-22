@@ -6,31 +6,26 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Scanner;
 
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.openstreetmap.gui.jmapviewer.Coordinate;
 
+import Segments.Segment;
+import Segments.PathSegment;
+
 public class NodesToPath {
-
-    public static class PathSegment {
-        // is the list limited by two values ? 
-        public List<Coordinate> path;
-        public double distanceKm;
-        public boolean isBus;
-        public String routeId;
-        public String routeLabel;
-    }
-
-    private static class OsrmSegment {
-        List<Coordinate> path;
-        double distanceKm;
-        OsrmSegment(List<Coordinate> path, double distanceKm) {
-            this.path = path;
-            this.distanceKm = distanceKm;
-        }
-    }
+    // public static class PathSegment {
+    //     public List<Coordinate> path;
+    //     public double distanceKm;
+    //     public boolean isBus;
+    //     public String routeId;
+    //     public String routeLabel;
+    // }
     private static final String OSRM_BASE = "https://router.project-osrm.org/route/v1";
-
+    private List<PathSegment> segments;
+    private List<Coordinate> routes;
+        
     private static String coordKey(Coordinate c) {
         return c.getLat() + "," + c.getLon();
     }
@@ -50,7 +45,7 @@ public class NodesToPath {
         }
     }
 
-    private static OsrmSegment fetchRoute(String profile, Coordinate from, Coordinate to) throws Exception {
+    private static Segment fetchRoute(String profile, Coordinate from, Coordinate to) throws Exception {
         String urlStr = OSRM_BASE + "/" + profile + "/"
             + from.getLon() + "," + from.getLat() + ";"
             + to.getLon() + "," + to.getLat()
@@ -83,35 +78,40 @@ public class NodesToPath {
                 path.add(new Coordinate(c.getDouble(1), c.getDouble(0)));
             }
         }
-        return new OsrmSegment(path, distanceKm);
+        return new PathSegment(path, distanceKm);
     }
 
-    public List<PathSegment> getSegmentedRoutes(Coordinate start, Coordinate end, List<NodeEntry> nodes) throws Exception {
-        Routes route = getRoutes(start, end, nodes);
-        if (route == null || !route.isReachable()) return null;
-
-        List<PathSegment> segments = new ArrayList<>();
-        List<Coordinate> path = route.getPath();
-
-        for (int i = 0; i < path.size() - 1; i++) {
-            Coordinate a = path.get(i);
-            Coordinate b = path.get(i + 1);
+    public boolean calculatePath(Coordinate start, Coordinate end, List<NodeEntry> nodes) throws Exception {
+        routes = getRoutes(start, end, nodes);
+        if(routes == null) return false;
+        
+        this.segments = new ArrayList<>();        
+        for (int i = 0; i < routes.size() - 1; i++) {
+            Coordinate a = routes.get(i);
+            Coordinate b = routes.get(i + 1);
             NodeEntry entry = findNodeEntry(a, b, nodes);
             String profile = entry != null ? "driving" : "walking";
 
-            OsrmSegment osrm = fetchRoute(profile, a, b);
-            if (osrm == null) return null;
+            Segment osrm = fetchRoute(profile, a, b);
+            if (osrm == null) return false;
 
-            PathSegment seg = new PathSegment();
-            seg.path = osrm.path;
-            seg.distanceKm = osrm.distanceKm;
-            seg.isBus = entry != null;
-            seg.routeId = entry != null ? entry.getNodeID() : null;
-            seg.routeLabel = entry != null ? entry.getRouteName() : null;
-            segments.add(seg);
+            PathSegment seg = (PathSegment)osrm;
+            if (entry != null) {
+                seg.setBus(true);
+                seg.setRouteLabel(entry.getRouteName());
+            }
+            this.segments.add(seg);
         }
 
+        return true;
+    }
+    public List<PathSegment> getSegmentedRoutes(){
         return segments;
+    }
+    public List<Coordinate> getBusNodes(){
+        // return a sliced value
+        return routes.subList(1, routes.size() - 1);
+        
     }
 
     private static NodeEntry findNodeEntry(Coordinate a, Coordinate b, List<NodeEntry> nodes) {
@@ -125,11 +125,10 @@ public class NodesToPath {
         return null;
     }
 
-    public Routes getRoutes(Coordinate startCoordinate,
+    public List<Coordinate> getRoutes(Coordinate startCoordinate,
                             Coordinate endCoordinate,
                             List<NodeEntry> nodes) {
 
-        // ── 1. Collect all unique coordinate points ───────────────────────────
         Map<String, Coordinate> coordMap = new LinkedHashMap<>();
 
         String startKey = coordKey(startCoordinate);
@@ -143,7 +142,6 @@ public class NodesToPath {
             coordMap.put(coordKey(node.getEndCoordinate()),   node.getEndCoordinate());
         }
 
-        // 
         Map<String, Map<String, Double>> graph = new HashMap<>();
         for (String key : coordMap.keySet()) graph.put(key, new HashMap<>());
 
@@ -217,7 +215,7 @@ public class NodesToPath {
             current = prev.get(current);
         }
         Collections.reverse(path);
-
-        return new Routes(path, distances.get(endKey));
+        
+        return distances.get(endKey) <= Double.MAX_VALUE ? path : null;
     }
 }

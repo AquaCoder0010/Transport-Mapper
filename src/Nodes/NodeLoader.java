@@ -22,10 +22,13 @@ public class NodeLoader {
                 }
                 String[] parts = line.split(",");
                 
+
+                //
                 if (parts.length < 6) {
                     throw new IOException("Invalid CSV line " + lineNumber + ": " + line);
                 }
-
+                //
+                
                 String nodeId = parts[0];
                 String nodeName = parts[1];
                 String startName = nodeName.split("-")[0].trim();

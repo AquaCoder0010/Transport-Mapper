@@ -3,6 +3,7 @@ import org.openstreetmap.gui.jmapviewer.Coordinate;
 
 
 public class NodeEntry{ 
+    // no use for nodeId
     private final String nodeId;
     private final String startNodeName;
     private final String endNodeName;
